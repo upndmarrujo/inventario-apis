@@ -1,0 +1,39 @@
+name: Sincronizar Excel desde SharePoint
+
+on:
+  schedule:
+    # Se ejecuta cada 15 minutos. GitHub puede retrasar la ejecución en
+    # horas de alta demanda, pero en la práctica corre con buena regularidad.
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # permite ejecutarlo manualmente desde la pestaña "Actions"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar Excel desde SharePoint
+        run: |
+          curl -L -f -o data.xlsx "https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje&download=1"
+
+      - name: Verificar que el archivo descargado es un Excel válido
+        run: |
+          file data.xlsx
+          test -s data.xlsx
+
+      - name: Commit y push si hubo cambios
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data.xlsx
+          if git diff --staged --quiet; then
+            echo "Sin cambios en el Excel, no se hace commit."
+          else
+            git commit -m "Actualizar Excel automáticamente (sync SharePoint)"
+            git push
+          fi
