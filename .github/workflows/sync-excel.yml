@@ -15,13 +15,26 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v4
 
-      - name: Descargar Excel desde SharePoint (vía API de shares de Microsoft)
+      - name: Descargar Excel desde SharePoint (resolviendo la página de redirección)
         run: |
-          SHARE_URL="https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje"
-          B64=$(echo -n "$SHARE_URL" | base64 -w0 | tr '+/' '-_' | tr -d '=')
-          ENCODED="u!$B64"
-          curl -L -f -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" \
-            -o data.xlsx "https://api.onedrive.com/v1.0/shares/$ENCODED/root/content"
+          SHARE_URL="https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje&download=1"
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+
+          echo "Paso 1: obteniendo la página de redirección..."
+          curl -L -s -A "$UA" -c cookies.txt -o redirect.html "$SHARE_URL"
+
+          echo "Paso 2: buscando la URL real dentro del HTML..."
+          REAL_URL=$(grep -oE '(https://[^"'"'"']+)' redirect.html | grep -iE 'download|\.xlsx|getfile|contentstream' | head -1)
+
+          if [ -z "$REAL_URL" ]; then
+            echo "No se encontró una URL de descarga dentro de la página. Contenido completo para depurar:"
+            cat redirect.html
+            exit 1
+          fi
+
+          echo "URL real encontrada: $REAL_URL"
+          echo "Paso 3: descargando el archivo real..."
+          curl -L -f -A "$UA" -b cookies.txt -o data.xlsx "$REAL_URL"
 
       - name: Diagnóstico - ver qué se descargó realmente
         run: |
