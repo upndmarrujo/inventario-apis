@@ -19,7 +19,7 @@ jobs:
 
       - name: Descargar Excel desde SharePoint
         run: |
-          curl -L -f -o data.xlsx "https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje&download=1"
+          curl -L -f -o data.xlsx "https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok&download=1"
 
       - name: Verificar que el archivo descargado es un Excel válido
         run: |
