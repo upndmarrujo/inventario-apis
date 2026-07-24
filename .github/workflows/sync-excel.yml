@@ -2,10 +2,8 @@ name: Sincronizar Excel desde SharePoint
 
 on:
   schedule:
-    # Se ejecuta cada 15 minutos. GitHub puede retrasar la ejecución en
-    # horas de alta demanda, pero en la práctica corre con buena regularidad.
     - cron: '*/15 * * * *'
-  workflow_dispatch: # permite ejecutarlo manualmente desde la pestaña "Actions"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -19,7 +17,16 @@ jobs:
 
       - name: Descargar Excel desde SharePoint
         run: |
-          curl -L -f -o data.xlsx "https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok&download=1"
+          curl -L -f -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" -o data.xlsx "https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje&download=1"
+
+      - name: Diagnóstico - ver qué se descargó realmente
+        run: |
+          echo "--- Tipo de archivo detectado ---"
+          file data.xlsx
+          echo "--- Tamaño en bytes ---"
+          wc -c data.xlsx
+          echo "--- Primeras 300 caracteres (para ver si es HTML/login) ---"
+          head -c 300 data.xlsx
 
       - name: Verificar que el archivo descargado es un Excel válido
         run: |
