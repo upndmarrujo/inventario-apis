@@ -15,9 +15,13 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v4
 
-      - name: Descargar Excel desde SharePoint
+      - name: Descargar Excel desde SharePoint (vía API de shares de Microsoft)
         run: |
-          curl -L -f -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" -o data.xlsx "https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje&download=1"
+          SHARE_URL="https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje"
+          B64=$(echo -n "$SHARE_URL" | base64 -w0 | tr '+/' '-_' | tr -d '=')
+          ENCODED="u!$B64"
+          curl -L -f -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" \
+            -o data.xlsx "https://api.onedrive.com/v1.0/shares/$ENCODED/root/content"
 
       - name: Diagnóstico - ver qué se descargó realmente
         run: |
