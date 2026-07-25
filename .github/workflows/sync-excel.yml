@@ -17,7 +17,7 @@ jobs:
 
       - name: Descargar Excel desde SharePoint
         run: |
-          SHARE_URL="https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQD4qfltzb83RouhRznc9CtjAaUk-hLKCVszzuvTBzU5Lok?e=sCFJje&download=1"
+          SHARE_URL="https://comunidadupnedu-my.sharepoint.com/:x:/g/personal/n00207800_upn_pe/IQDFhnD4aKxVT5z5YK834uusAZkepzQMR3PM1XlHJ1w8meY?e=0flwcf&download=1"
           UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
           curl -L -f -A "$UA" -c cookies.txt -o data.xlsx "$SHARE_URL"
 
