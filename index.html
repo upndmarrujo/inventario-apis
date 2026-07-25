@@ -791,7 +791,7 @@ function disconnectLocalFile(){
 function confirmResetData(){
   openModal(`
     <h3>¿Reiniciar todos los datos?</h3>
-    <p>Esto borra el catálogo, operaciones, dependencias e histórico cargados en esta consola <b>y el borrador guardado en este navegador</b>. No afecta a tu archivo Excel original. Tendrás que volver a importarlo o conectarlo después.</p>
+    <p>Esto borra el catálogo, operaciones, dependencias e histórico cargados en esta consola <b>y el borrador guardado en este navegador</b>, y vuelve a cargar la página para traer nuevamente el Excel más reciente desde el repositorio.</p>
     <div class="formbar">
       <button class="btn ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn danger" onclick="closeModal(); resetAllData();">Sí, reiniciar</button>
@@ -799,14 +799,8 @@ function confirmResetData(){
   `);
 }
 async function resetAllData(){
-  DB = { apis:[], ops:[], hist:[], deps:[], listas: JSON.parse(JSON.stringify(DEFAULT_LISTS)) };
-  META = { fileName:null, lastImport:null, lastSaved:null };
-  fileHandle = null;
-  FILE_SAVE_OK = null;
   try{ await window.storage.delete('inventario-apis-db', true); }catch(e){ /* no había borrador, o storage no disponible */ }
-  toast('Datos y borrador reiniciados. Importa tu Excel para empezar de nuevo.','ok');
-  TAB = 'dashboard';
-  renderApp();
+  window.location.reload();
 }
 async function writeToFileHandle(){
   if(!fileHandle) return;
@@ -909,12 +903,8 @@ function renderSidebar(){
 function topbar(title, sub){
   const fileActions = `
       <span class="pill-role" style="border-color:var(--info);color:var(--info);">👁 Modo solo consulta</span>
-      <label class="btn ghost" style="cursor:pointer;">
-        Importar Excel
-        <input type="file" accept=".xlsx,.xls" onchange="importExcel(this.files[0])">
-      </label>
     `;
-  const resetBtn = META.fileName ? `<button class="btn ghost" style="color:var(--bad);" onclick="confirmResetData()" title="Borra los datos cargados y el borrador guardado en este navegador">Reiniciar datos</button>` : '';
+  const resetBtn = `<button class="btn ghost" style="color:var(--bad);" onclick="confirmResetData()" title="Borra los datos cargados en este navegador y vuelve a traer el Excel más reciente">Reiniciar datos</button>`;
   return `
   <div class="topbar">
     <div>
@@ -982,7 +972,7 @@ function viewDashboard(){
 
   return `
     ${topbar('Resumen del inventario', 'Vista general del catálogo centralizado de APIs, operaciones, dependencias y actividad de proyectos.')}
-    ${!META.fileName ? `<div class="alert info"><span>ℹ</span><div><b>Aún no has cargado el Excel del inventario.</b> Usa <b>Importar Excel</b> arriba para cargar <code class="idtag">Inventario_Centralizado_APIs_v2.xlsx</code> y empezar a consultar. Esta es una versión de <b>solo consulta</b>: no crea ni modifica APIs, así que puedes compartirla con quien solo necesite buscar y revisar.</div></div>`
+    ${!META.fileName ? `<div class="alert info"><span>ℹ</span><div><b>No se pudo cargar el Excel del inventario automáticamente.</b> Revisa tu conexión y usa <b>Reiniciar datos</b> (arriba a la derecha) para volver a intentarlo. Esta es una versión de <b>solo consulta</b>: no crea ni modifica APIs, así que puedes compartirla con quien solo necesite buscar y revisar.</div></div>`
       : `<div class="alert ok"><span>✓</span><div>Consultando <b>${esc(META.fileName)}</b>${META.lastImport?` · importado ${new Date(META.lastImport).toLocaleString('es-PE')}`:''}. Para ver cambios más recientes, vuelve a importar el archivo actualizado.</div></div>`}
 
     <div class="kpis">
@@ -2462,7 +2452,7 @@ function viewGuia(){
       <h4>0. Esta es la versión de solo consulta</h4>
       <p>Aquí puedes <b>buscar, filtrar, revisar el historial de proyectos y generar reportes</b> del inventario, pero no puedes crear, modificar ni reutilizar APIs, ni registrar operaciones/dependencias, ni editar estados — esas acciones existen en la versión completa de la consola, usada por los Arquitectos de Solución. Si necesitas hacer un cambio, pide a un arquitecto que lo registre ahí; aquí lo verás reflejado en tu próxima importación del Excel.</p>
       <h4>1. Cómo cargar los datos</h4>
-      <p>Usa el botón <b>Importar Excel</b> (arriba a la derecha) para cargar <code class="idtag">Inventario_Centralizado_APIs_v2.xlsx</code>. Como esta versión no escribe cambios, no hay opción de exportar ni de conectar el archivo en modo edición — solo lectura. Cuando el archivo maestro se actualice, vuelve a importarlo para ver los datos más recientes.</p>
+      <p>Los datos se cargan automáticamente desde el Excel maestro (<code class="idtag">Inventario_Centralizado_APIs_v2.xlsx</code>) al abrir la página. Como esta versión no escribe cambios, no hay opción de exportar ni de conectar el archivo en modo edición — solo lectura. Si el archivo maestro se actualizó y no ves los cambios, usa <b>Reiniciar datos</b> (arriba a la derecha) para forzar una recarga.</p>
       <p style="margin-top:10px;">La conexión directa (Opción A) se pierde si cierras la pestaña del navegador — deberás volver a conectar el archivo la próxima vez que abras la consola (es una limitación de seguridad del navegador, no de esta herramienta).</p>
       <div class="example">Además, la consola guarda un <b>borrador de trabajo</b> automáticamente (compartido entre quienes usan este enlace) para que no pierdas cambios entre sesiones — pero ese borrador nunca sustituye al Excel oficial.</div>
 
