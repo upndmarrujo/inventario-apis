@@ -457,35 +457,19 @@ const SHEETS = {
 };
 
 /* ==================================================================================
-   ⭐ CONFIGURACIÓN — EDITA ESTA VARIABLE PARA CONECTAR EL EXCEL DE ONEDRIVE
+   ⭐ CONFIGURACIÓN — FUENTE DE DATOS DEL EXCEL
    ==================================================================================
-   Pega aquí el enlace de DESCARGA DIRECTA de tu Excel en OneDrive/SharePoint.
-   NO es el link normal de "Compartir" (ese abre una vista web, no descarga el binario).
+   ONEDRIVE_EXCEL_URL apunta a "data.xlsx", un archivo que vive en este mismo
+   repositorio y que se mantiene actualizado automáticamente por el workflow de
+   GitHub Actions (.github/workflows/sync-excel.yml), el cual descarga la última
+   versión desde el OneDrive/SharePoint de origen cada 15 minutos.
 
-   Cómo obtener el link correcto:
-   1) En OneDrive, clic derecho sobre el archivo → Compartir → Copiar vínculo
-      (asegúrate de que el acceso sea "Cualquier persona con el vínculo" o al
-      menos accesible por quien abrirá esta página).
-   2) Tomas ese link y le agregas al final "&download=1" (OneDrive personal)
-      o, si es SharePoint/OneDrive empresarial, reemplazas todo lo que sigue
-      después de "?" por "download=1". Ejemplos:
-        Personal:   https://1drv.ms/x/s!AbCdEfG...          -> pégalo tal cual,
-                     el código de abajo se encarga de intentar forzar la descarga.
-        Empresarial (SharePoint): usa el link "Insertar/Embed" o el link directo
-                     al archivo dentro de la biblioteca de documentos, terminado
-                     en "?download=1".
-   3) Pega el resultado entre las comillas de ONEDRIVE_EXCEL_URL.
-   4) Deja la variable en '' (vacío) si por ahora NO quieres auto-sincronizar.
+   El "?v=" al final evita que el navegador use una copia vieja guardada en caché.
 
-   ⚠️ Nota importante sobre CORS: OneDrive/SharePoint no siempre permite que una
-   página en otro dominio (por ejemplo tu sitio de Power Pages) lea el archivo
-   directamente por seguridad. Si al abrir la consola ves el aviso "No se pudo
-   sincronizar automáticamente con OneDrive", significa que el link no admite
-   descarga cross-origin desde este dominio: en ese caso hay que usar Power
-   Automate / una API intermedia, o alojar el Excel en un endpoint que sí
-   permita CORS (p.ej. un Web File dentro del propio Power Pages).
+   Si algún día quieres apuntar a otra fuente (otro archivo local, u otra URL que sí
+   permita CORS), solo cambia el valor de esta constante.
    ================================================================================== */
-const ONEDRIVE_EXCEL_URL = 'data.xlsx?v=' + Date.now(); // <-- archivo local sincronizado por GitHub Actions (ver .github/workflows/sync-excel.yml). El "?v=" evita que el navegador use una copia en caché vieja.
+const ONEDRIVE_EXCEL_URL = 'data.xlsx?v=' + Date.now();
 
 const HEADERS = {
   apis: ["ID API","País","Nombre API","Descripción","Tipo API","Business Area","Business Domain","Service Domain","Complejidad","Estilo Diseño","Canal Integración (Despliegue)","URL OpenAPI (SWAGGER)","Versión Actual","Fecha de Registro","Estado_General_API"],
@@ -659,6 +643,23 @@ async function loadPersisted(){
   return false;
 }
 
+/* --- Auto-sincronización con el Excel maestro (usa ONEDRIVE_EXCEL_URL definida arriba) --- */
+async function autoLoadFromOneDrive(){
+  if(!ONEDRIVE_EXCEL_URL) return false;
+  try{
+    const res = await fetch(ONEDRIVE_EXCEL_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const buf = await res.arrayBuffer();
+    loadWorkbookFromArrayBuffer(buf, 'Inventario (sincronizado)');
+    scheduleSave();
+    return true;
+  }catch(e){
+    console.error('No se pudo sincronizar automáticamente el Excel', e);
+    toast('No se pudo sincronizar automáticamente el Excel. Se usará el último borrador guardado, o importa el Excel manualmente.','warn');
+    return false;
+  }
+}
+
 function sheetToObjects(wb, sheetName, headers){
   const ws = wb.Sheets[sheetName];
   if(!ws) return [];
@@ -714,23 +715,6 @@ function importExcel(file){
     }
   };
   reader.readAsArrayBuffer(file);
-}
-
-/* --- Auto-sincronización con OneDrive (usa ONEDRIVE_EXCEL_URL definida arriba) --- */
-async function autoLoadFromOneDrive(){
-  if(!ONEDRIVE_EXCEL_URL) return false;
-  try{
-    const res = await fetch(ONEDRIVE_EXCEL_URL, {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const buf = await res.arrayBuffer();
-    loadWorkbookFromArrayBuffer(buf, 'Inventario (sincronizado desde OneDrive)');
-    scheduleSave();
-    return true;
-  }catch(e){
-    console.error('No se pudo sincronizar automáticamente con OneDrive', e);
-    toast('No se pudo sincronizar automáticamente con OneDrive (posible bloqueo CORS o link inválido). Se usará el último borrador guardado, o importa el Excel manualmente.','warn');
-    return false;
-  }
 }
 
 /* --- Construcción del workbook (compartida por: descarga manual, y guardado directo) --- */
@@ -802,6 +786,26 @@ function disconnectLocalFile(){
   fileHandle = null;
   FILE_SAVE_OK = null;
   toast('Archivo local desconectado. Vuelve a Importar/Exportar manualmente si lo necesitas.','info');
+  renderApp();
+}
+function confirmResetData(){
+  openModal(`
+    <h3>¿Reiniciar todos los datos?</h3>
+    <p>Esto borra el catálogo, operaciones, dependencias e histórico cargados en esta consola <b>y el borrador guardado en este navegador</b>. No afecta a tu archivo Excel original. Tendrás que volver a importarlo o conectarlo después.</p>
+    <div class="formbar">
+      <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn danger" onclick="closeModal(); resetAllData();">Sí, reiniciar</button>
+    </div>
+  `);
+}
+async function resetAllData(){
+  DB = { apis:[], ops:[], hist:[], deps:[], listas: JSON.parse(JSON.stringify(DEFAULT_LISTS)) };
+  META = { fileName:null, lastImport:null, lastSaved:null };
+  fileHandle = null;
+  FILE_SAVE_OK = null;
+  try{ await window.storage.delete('inventario-apis-db', true); }catch(e){ /* no había borrador, o storage no disponible */ }
+  toast('Datos y borrador reiniciados. Importa tu Excel para empezar de nuevo.','ok');
+  TAB = 'dashboard';
   renderApp();
 }
 async function writeToFileHandle(){
@@ -910,6 +914,7 @@ function topbar(title, sub){
         <input type="file" accept=".xlsx,.xls" onchange="importExcel(this.files[0])">
       </label>
     `;
+  const resetBtn = META.fileName ? `<button class="btn ghost" style="color:var(--bad);" onclick="confirmResetData()" title="Borra los datos cargados y el borrador guardado en este navegador">Reiniciar datos</button>` : '';
   return `
   <div class="topbar">
     <div>
@@ -918,6 +923,7 @@ function topbar(title, sub){
     </div>
     <div class="file-actions">
       ${fileActions}
+      ${resetBtn}
     </div>
   </div>`;
 }
@@ -2498,9 +2504,9 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); }
 
 async function init(){
   renderApp();
-  const syncedFromOneDrive = await autoLoadFromOneDrive();
-  if(syncedFromOneDrive){
-    toast(`Datos sincronizados automáticamente desde OneDrive: ${DB.apis.length} APIs.`,'ok');
+  const synced = await autoLoadFromOneDrive();
+  if(synced){
+    toast(`Datos sincronizados automáticamente: ${DB.apis.length} APIs.`,'ok');
   } else {
     const had = await loadPersisted();
     if(had) toast('Se recuperó tu borrador de trabajo guardado.','ok');
